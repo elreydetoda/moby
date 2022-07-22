@@ -15,6 +15,8 @@ for cmd in curl jq; do
 	fi
 done
 
+$curl=('curl' '-x' "${PROXY}")
+
 usage() {
 	echo "usage: $0 dir image[:tag][@digest] ..."
 	echo "       $0 /tmp/old-hello-world hello-world:latest@sha256:8be990ef2aeb16dbcb9271ddfe2610fa6658d13f6dfb8bc72074cc1ca36966a7"
@@ -61,7 +63,7 @@ fetch_blob() {
 
 	local curlHeaders
 	curlHeaders="$(
-		curl -S "${curlArgs[@]}" \
+		"${curl[@]}" -S "${curlArgs[@]}" \
 			-H "Authorization: Bearer $token" \
 			"$registryBase/v2/$image/blobs/$digest" \
 			-o "$targetFile" \
@@ -79,7 +81,7 @@ fetch_blob() {
 			return 1
 		fi
 
-		curl -fSL "${curlArgs[@]}" \
+		"${curl[@]}" -fSL "${curlArgs[@]}" \
 			"$blobRedirect" \
 			-o "$targetFile"
 	fi
@@ -169,7 +171,7 @@ handle_single_manifest_v2() {
 					continue
 				fi
 				local token
-				token="$(curl -fsSL "$authBase/token?service=$authService&scope=repository:$image:pull" | jq --raw-output '.token')"
+				token="$("${curl[@]}" -fsSL "$authBase/token?service=$authService&scope=repository:$image:pull" | jq --raw-output '.token')"
 				fetch_blob "$token" "$image" "$layerDigest" "$dir/$layerTar" --progress-bar
 				;;
 
@@ -276,10 +278,10 @@ while [ $# -gt 0 ]; do
 
 	imageFile="${image//\//_}" # "/" can't be in filenames :)
 
-	token="$(curl -fsSL "$authBase/token?service=$authService&scope=repository:$image:pull" | jq --raw-output '.token')"
+	token="$("${curl[@]}" -fsSL "$authBase/token?service=$authService&scope=repository:$image:pull" | jq --raw-output '.token')"
 
 	manifestJson="$(
-		curl -fsSL \
+		"${curl[@]}" -fsSL \
 			-H "Authorization: Bearer $token" \
 			-H 'Accept: application/vnd.docker.distribution.manifest.v2+json' \
 			-H 'Accept: application/vnd.docker.distribution.manifest.list.v2+json' \
@@ -319,7 +321,7 @@ while [ $# -gt 0 ]; do
 							digest="$(echo "$layerMeta" | jq --raw-output '.digest')"
 							# get second level single manifest
 							submanifestJson="$(
-								curl -fsSL \
+								"${curl[@]}" -fsSL \
 									-H "Authorization: Bearer $token" \
 									-H 'Accept: application/vnd.docker.distribution.manifest.v2+json' \
 									-H 'Accept: application/vnd.docker.distribution.manifest.list.v2+json' \
@@ -378,7 +380,7 @@ while [ $# -gt 0 ]; do
 					echo "skipping existing ${layerId:0:12}"
 					continue
 				fi
-				token="$(curl -fsSL "$authBase/token?service=$authService&scope=repository:$image:pull" | jq --raw-output '.token')"
+				token="$("${curl[@]}" -fsSL "$authBase/token?service=$authService&scope=repository:$image:pull" | jq --raw-output '.token')"
 				fetch_blob "$token" "$image" "$imageLayer" "$dir/$layerId/layer.tar" --progress-bar
 			done
 			;;
